@@ -1,0 +1,10 @@
+Lastly, here are some references which might be helpful to get you started on the project:
+
+Recommender Systems, Encyclopedia of Machine Learning, Prem Melville and Vikas Sindhwani (http://www.prem-melville.com/publications/recommender-systems-eml2010.pdf)
+Collaborative Filtering Recommender Systems, Michael D. Ekstrand, John T. Riedl and Joseph A. Konstan (http://files.grouplens.org/papers/FnT%20CF%20Recsys%20Survey.pdf)
+A survey of collaborative filtering techniques, Xiaoyuan Su, Taghi M. Khoshgoftaar. (https://www.hindawi.com/journals/aai/2009/421425/)
+BPR: Bayesian Personalized Ranking from Implicit Feedback, Steffen Rendle, Christoph Freudenthaler, Zeno Gantner and Lars Schmidt Thieme (http://arxiv.org/abs/1205.2618)
+Everyone Likes Shopping! Multi-class Product Categorization for e-Commerce, Zornitsa Kozareva (http://www.aclweb.org/anthology/N15-1147)
+A Survey of Accuracy Evaluation Metrics of Recommendation Tasks, Asela Gunawardana and Guy Shani (http://jmlr.csail.mit.edu/papers/volume10/gunawardana09a/gunawardana09a.pdf)
+Collaborative and Content-based Filtering for Item Recommendation on Social Bookmarking Websites, Toine Bogers and Antal van den Bosch (http://ceur-ws.org/Vol-532/paper2.pdf)
+Taxonomy Discovery for Personalized Recommendation, Yuchen Zhang, Amr Ahmed, Vanja Josifovski and Alexander Smola (https://people.eecs.berkeley.edu/~yuczhang/files/wsdm14_taxonomy.pdf)
