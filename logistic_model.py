@@ -30,7 +30,12 @@ qtag_matrix = qtag_vec.fit_transform(qtags).toarray()
 
 # Convert the numpy arrays to dataframes
 cseq_pd = pd.DataFrame(cseq_matrix)
+# Rename the columns as otherwise the ids of qtag and cseq will overlap
+cseq_pd.rename(columns = lambda x : 'c' + str(x), inplace = True)
+
 qtag_pd = pd.DataFrame(qtag_matrix)
+# Rename the columns as otherwise the ids of qtag and cseq will overlap
+qtag_pd.rename(columns = lambda x : 't' + str(x), inplace = True)
 
 # Merge
 proc_qdata = pd.concat([qdata.qid, cseq_pd, qtag_pd, qdata.nvotes, qdata.nans, qdata.ntqans], axis = 1)
@@ -42,14 +47,14 @@ def prepare_training_data_for_user(uid):
     # Get entries for the user from invited data
     user_invdata = invdata[invdata.uid == uid]
     # Merge with processed qdata to get the training data for the user
-    user_data = user_invdata.merge(proc_qdata, on="qid", how="inner").drop(["qid", "uid", "wseq"], axis = 1)
+    user_data = user_invdata.merge(proc_qdata, on="qid", how="inner").drop(["qid", "uid"], axis = 1)
     user_train_labels = user_data.answered
     user_train_data = user_data.drop(["answered"], axis = 1)
     return user_train_data, user_train_labels
 
 def get_val_data_for_user(uid):
     user_valdata = valdata[valdata.uid == uid]
-    user_valdata = user_valdata.merge(proc_qdata, on="qid", how="inner").drop(["wseq", "label"], axis = 1)
+    user_valdata = user_valdata.merge(proc_qdata, on="qid", how="inner").drop(["label"], axis = 1)
     return user_valdata
 
 from sklearn import linear_model
@@ -59,6 +64,30 @@ import time
 tasks = mp.Queue()
 results = mp.Queue()
 numproc = mp.cpu_count()
+
+
+# Normalize the input dataframe in-place
+def normalize(dataframe, normalize_params = None):
+    # If normalization parameters are not passed, compute them
+    if normalize_params is None:
+        normalize_params = []
+        for col in dataframe:
+            mean = np.mean(dataframe[col])
+            std = np.std(dataframe[col])
+            normalize_params.append((mean, std,))
+
+    # Subtract the mean and divide by the std to normalize
+    index = 0
+    for col in dataframe:
+        (mean, std) = normalize_params[index]
+        index += 1
+
+        dataframe[col] -= mean
+        if std != 0.0:
+            dataframe[col] /= std
+
+    return normalize_params
+
 
 # Map function
 def handle_user(users_queue, results_queue):
@@ -70,6 +99,7 @@ def handle_user(users_queue, results_queue):
 
         if len(user_unique_labels) != 1:
             user_train_data, user_train_labels = prepare_training_data_for_user(uid)
+            normalize_params = normalize(user_train_data)
             if user_train_data.shape[0] > 0:
                 regr = linear_model.LogisticRegression()
                 regr.fit(user_train_data, user_train_labels)
@@ -78,6 +108,8 @@ def handle_user(users_queue, results_queue):
         user_val_trimmed_data = user_val_data.drop(["qid", "uid"], axis = 1)
 
         if len(user_unique_labels) != 1 and user_train_data.shape[0] > 0:
+            # Use the mean and std of train data to normalize validation data
+            normalize(user_val_trimmed_data, normalize_params)
             predicted_proba = regr.predict_proba(user_val_trimmed_data)
         else:
             if len(user_unique_labels) == 0:
@@ -121,4 +153,4 @@ end = time.time()
 print "Time elapsed = ", end - start
 
 # Write output as CSV
-valdata.to_csv("attempt2.csv")
+valdata.to_csv("attempt3.csv")
