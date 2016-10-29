@@ -73,7 +73,7 @@ def handle_user(users_queue, results_queue):
             user_train_data, user_train_labels = prepare_training_data_for_user(uid)
             if user_train_data.shape[0] > 0:
                 #regr = linear_model.LogisticRegression()
-                regr = svm.SVC()
+                regr = svm.SVC(C=1, gamma=0.1, probability=True)
                 regr.fit(user_train_data, user_train_labels)
 
         user_val_data = get_val_data_for_user(uid)
