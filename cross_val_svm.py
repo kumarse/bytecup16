@@ -1,13 +1,14 @@
 
 # coding: utf-8
 
-# In[8]:
+# In[2]:
 
 import numpy as np
 import pandas as pd
 from sklearn import svm
 import ndcg
 from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold
 
 BASE  = './bytecup2016data'
 IINFO = BASE + '/invited_info_train.txt'
@@ -19,9 +20,6 @@ invdata = pd.read_csv(IINFO, delim_whitespace=True, header=None, names=["qid", "
 qdata   = pd.read_csv(QINFO, delim_whitespace=True, header=None, names=["qid", "qtag", "wseq", "cseq", "nvotes", "nans", "ntqans"])
 udata   = pd.read_csv(UINFO, delim_whitespace=True, header=None, names=["uid", "exptag", "wseq", "cseq"])
 valdata = pd.read_csv(VAL)
-
-invdata = invdata[:1000]
-valdata = valdata[:1000]
 
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -72,10 +70,9 @@ results = mp.Queue()
 numproc = mp.cpu_count()
 
 # Map function
-def handle_user(users_queue, new_invdata, new_valdata, results_queue):
+def handle_user(users_queue, new_invdata, new_valdata, param, results_queue):
     while True:
         uid = users_queue.get()
-        print str(uid) + "started"
         if uid is None:
             break
         user_unique_labels = np.unique(new_invdata[new_invdata.uid == uid].label)
@@ -84,7 +81,7 @@ def handle_user(users_queue, new_invdata, new_valdata, results_queue):
             user_train_data, user_train_labels = prepare_training_data_for_user(new_invdata, uid)
             if user_train_data.shape[0] > 0:
                 #regr = linear_model.LogisticRegression()
-                regr = svm.SVC(kernel='rbf', C=1, gamma=0.1, probability=True)
+                regr = svm.SVC(kernel= param['kernel'], C= param['C'], gamma= param['gamma'], probability=True)
                 regr.fit(user_train_data, user_train_labels)
                 
         user_val_data = get_val_data_for_user(new_valdata, uid)
@@ -97,13 +94,11 @@ def handle_user(users_queue, new_invdata, new_valdata, results_queue):
                 user_unique_labels = [0]
             predicted_proba = np.array([[0.0, 1.0] if user_unique_labels[0] == 1 else [1.0, 0.0] for i in range(user_val_data.shape[0])])
 
-        print str(uid) + "end"
         results_queue.put({"uid": uid, "labels": predicted_proba[:, 1]})
         
 def handle_question(question_queue, invdata, new_valdata, results_queue):
      while True:
         qid = question_queue.get()
-        print str(qid) + "started"
         if qid is None:
             break
             
@@ -114,7 +109,7 @@ def handle_question(question_queue, invdata, new_valdata, results_queue):
         r = []
         for uid in sorted_users:
             r.append(invdata[(invdata.qid == qid) & (invdata.uid == uid)].values[0][2])
-        results_queue.put({"qid": uid, "val": (ndcg.ndcg_at_k(r,5) * 0.5) + (ndcg.ndcg_at_k(r,10) * 0.5)})
+        results_queue.put({"qid": qid, "val": (ndcg.ndcg_at_k(r,5) * 0.5) + (ndcg.ndcg_at_k(r,10) * 0.5)})
 
 # Reduce function
 def handle_user_result(new_valdata, result):
@@ -126,108 +121,113 @@ def handle_question_result(q_ndcg, result):
     qid = result["qid"]
     q_ndcg.ix[q_ndcg.qid == qid, 'val'] = result["val"]
 
-skf = StratifiedKFold(n_splits=5)
+skf = KFold(len(invdata), n_folds =5 )
 invdata_label = invdata['label']
-accuracy = []
+for c in [0.0001, 0.001, 0.01, 0.1, 1, 10, 100]:
+    for gamma in [0.00001, 0.0001, 0.001, 0.01, 0.1]:
+        param = {}
+        param['kernel'] = 'rbf'
+        param['C'] = c
+        param['gamma'] = gamma
+        accuracy = []
+        for train_invdata, test_valdata in skf:
+            new_invdata = invdata.loc[train_invdata]
+            new_valdata = invdata.loc[test_valdata]
+            new_invdata.reset_index(drop = True, inplace = True)
+            new_valdata.reset_index(drop = True, inplace = True)
+            q_ndcg = pd.DataFrame()
+            q_ndcg['qid'] = np.unique(new_valdata.qid)
+            q_ndcg['val'] = 0
+
+            unique_users = np.unique(new_valdata.uid)
+            num_unique = len(unique_users)
+            # Queue up the users
+            for uid in unique_users:
+                tasks.put(uid)
+
+            # Put poison pills
+            for i in range(numproc):
+                tasks.put(None)
+
+            procs = []
+            for i in range(numproc):
+                p = mp.Process(target=handle_user, args=(tasks, new_invdata, new_valdata, param, results,))
+                procs.append(p)
+                p.start()
+
+            start = time.time()
+            num_results = 0
+            while True:
+                res = results.get()
+                handle_user_result(new_valdata, res)
+                num_results += 1
+                if num_results == len(unique_users):
+                    break
+            end = time.time()
+
+            print "Time elapsed = ", end - start
 
 
-for train_invdata, test_valdata in skf.split(invdata, invdata_label):
-    new_invdata = invdata.loc[train_invdata]
-    new_valdata = invdata.loc[test_valdata]
-    new_invdata.reset_index(drop = True, inplace = True)
-    new_valdata.reset_index(drop = True, inplace = True)
-    q_ndcg = pd.DataFrame()
-    q_ndcg['qid'] = np.unique(new_valdata.qid)
-    q_ndcg['val'] = 0
+            unique_questions = np.unique(new_valdata.qid)
+            num_unique = len(unique_questions)
+            # Queue up the users
+            for qid in unique_questions:
+                tasks.put(qid)
 
-    unique_users = np.unique(new_valdata.uid)
-    num_unique = len(unique_users)
-    # Queue up the users
-    for uid in unique_users:
-        tasks.put(uid)
+            # Put poison pills
+            for i in range(numproc):
+                tasks.put(None)
 
-    # Put poison pills
-    for i in range(numproc):
-        tasks.put(None)
+            procs = []
+            for i in range(numproc):
+                p = mp.Process(target=handle_question, args=(tasks, invdata, new_valdata, results,))
+                procs.append(p)
+                p.start()
 
-    procs = []
-    for i in range(numproc):
-        p = mp.Process(target=handle_user, args=(tasks, new_invdata, new_valdata, results,))
-        procs.append(p)
-        p.start()
+            start = time.time()
+            num_results = 0
+            while True:
+                res = results.get()
+                handle_question_result(q_ndcg, res)
+                num_results += 1
+                if num_results == len(unique_questions):
+                    break
+            end = time.time()
 
-    start = time.time()
-    num_results = 0
-    while True:
-        res = results.get()
-        handle_user_result(new_valdata, res)
-        num_results += 1
-        if num_results == len(unique_users):
-            break
-    end = time.time()
+            print "Time elapsed = ", end - start
 
-    print "Time elapsed = ", end - start
+            accuracy.append(q_ndcg['val'].sum() / q_ndcg.index.size)
+            print accuracy[-1]
+        print accuracy
     
-   
-    unique_questions = np.unique(new_valdata.qid)
-    num_unique = len(unique_questions)
-    # Queue up the users
-    for qid in unique_questions:
-        tasks.put(qid)
+# for uid in np.unique(valdata.uid):
+#     user_unique_labels = np.unique(invdata[invdata.uid == uid].label)
 
-    # Put poison pills
-    for i in range(numproc):
-        tasks.put(None)
+#     if len(user_unique_labels) != 1:
+#         user_train_data, user_train_labels = prepare_training_data_for_user(uid, proc_qdata)
+#         if user_train_data.shape[0] > 0:
+#             regr = svm.SVC(kernel='rbf', C=1, gamma=0.1, probability=True)
+#             regr.fit(user_train_data, user_train_labels)
 
-    procs = []
-    for i in range(numproc):
-        p = mp.Process(target=handle_question, args=(tasks, invdata, new_valdata, results,))
-        procs.append(p)
-        p.start()
+#     user_val_data = get_val_data_for_user(uid, proc_qdata)
+#     user_val_trimmed_data = user_val_data.drop(["qid", "uid"], axis = 1)
 
-    start = time.time()
-    num_results = 0
-    while True:
-        res = results.get()
-        handle_question_result(q_ndcg, res)
-        num_results += 1
-        if num_results == len(unique_questions):
-            break
-    end = time.time()
+#     if len(user_unique_labels) != 1 and user_train_data.shape[0] > 0:
+#         predicted_proba = regr.predict_proba(user_val_trimmed_data)
+#     else:
+#         if len(user_unique_labels) == 0:
+#             user_unique_labels = [0]
+#         predicted_proba = np.array([[0.0, 1.0] if user_unique_labels[0] == 1 else [1.0, 0.0] for i in range(user_val_data.shape[0])])
 
-    print "Time elapsed = ", end - start
-    
-    accuracy.append(q_ndcg['val'].sum() / q_ndcg.index.size)
-    print accuracy[-1] 
+#     valdata.ix[valdata.uid == uid, 'label'] = predicted_proba[:, 1]
 
-for uid in np.unique(valdata.uid):
-    user_unique_labels = np.unique(invdata[invdata.uid == uid].label)
-
-    if len(user_unique_labels) != 1:
-        user_train_data, user_train_labels = prepare_training_data_for_user(invdata, uid)
-        if user_train_data.shape[0] > 0:
-            regr = svm.SVC(kernel='rbf', C=1, gamma=0.1, probability=True)
-            regr.fit(user_train_data, user_train_labels)
-
-    user_val_data = get_val_data_for_user(valdata, uid)
-    user_val_trimmed_data = user_val_data.drop(["qid", "uid"], axis = 1)
-
-    if len(user_unique_labels) != 1 and user_train_data.shape[0] > 0:
-        predicted_proba = regr.predict_proba(user_val_trimmed_data)
-    else:
-        if len(user_unique_labels) == 0:
-            user_unique_labels = [0]
-        predicted_proba = np.array([[0.0, 1.0] if user_unique_labels[0] == 1 else [1.0, 0.0] for i in range(user_val_data.shape[0])])
-
-    valdata.ix[valdata.uid == uid, 'label'] = predicted_proba[:, 1]
-print accuracy
 # Write output as CSV
-valdata.to_csv("attempt7.csv")
+#valdata.to_csv("attempt7.csv")
 
 
-# In[6]:
+# In[ ]:
 
-invdata.sort_values(['label'], axis=0, ascending=False)
+
 
 
 # In[ ]:
