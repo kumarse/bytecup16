@@ -104,8 +104,8 @@ def handle_question(question_queue, invdata, new_valdata, results_queue):
             
         q_result = new_valdata[new_valdata.qid == qid]
         q_result.reset_index(drop = True, inplace = True)
-        q_result.sort_values(['label'], axis=0, ascending=False)
-        sorted_users = q_result['uid']
+        sorted_q_result = q_result.sort_values(['label'], axis=0, ascending=False)
+        sorted_users = sorted_q_result['uid']
         r = []
         for uid in sorted_users:
             r.append(invdata[(invdata.qid == qid) & (invdata.uid == uid)].values[0][2])
@@ -121,7 +121,7 @@ def handle_question_result(q_ndcg, result):
     qid = result["qid"]
     q_ndcg.ix[q_ndcg.qid == qid, 'val'] = result["val"]
 
-skf = KFold(len(invdata), n_folds =5 )
+skf = StratifiedKFold(n_splits = 5)
 invdata_label = invdata['label']
 for c in [0.0001, 0.001, 0.01, 0.1, 1, 10, 100]:
     for gamma in [0.00001, 0.0001, 0.001, 0.01, 0.1]:
@@ -130,7 +130,7 @@ for c in [0.0001, 0.001, 0.01, 0.1, 1, 10, 100]:
         param['C'] = c
         param['gamma'] = gamma
         accuracy = []
-        for train_invdata, test_valdata in skf:
+        for train_invdata, test_valdata in skf.split(invdata,invdata_label):
             new_invdata = invdata.loc[train_invdata]
             new_valdata = invdata.loc[test_valdata]
             new_invdata.reset_index(drop = True, inplace = True)
