@@ -47,6 +47,7 @@ def handle_question_result(q_ndcg, result):
 # In[23]:
 
 validation_files =  glob.glob("cross-validation-attempt*.csv")
+accuracy = []
 for validation_file in validation_files:
     new_valdata = pd.read_csv(validation_file)
     q_ndcg = pd.DataFrame()
