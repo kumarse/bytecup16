@@ -85,7 +85,7 @@ for validation_file in validation_files:
     accuracy.append(q_ndcg['val'].sum() / q_ndcg.index.size)
     print accuracy[-1]
 print accuracy
-print accuracy.sum() / len(accuracy)
+print sum(accuracy) / len(accuracy)
 
 
 # In[ ]:
