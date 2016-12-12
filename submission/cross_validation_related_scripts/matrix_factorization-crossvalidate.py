@@ -9,7 +9,7 @@ import graphlab
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import KFold
 
-BASE  = './bytecup2016data'
+BASE  = '../bytecup2016data'
 IINFO = BASE + '/invited_info_train.txt'
 QINFO = BASE + '/question_info.txt'
 VAL   = BASE + '/validate_nolabel.txt'

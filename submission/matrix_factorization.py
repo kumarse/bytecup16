@@ -12,10 +12,10 @@ VAL   = BASE + '/validate_nolabel.txt'
 TEST   = BASE + '/test_nolabel.txt'
 
 invdata = pd.read_csv(IINFO, delim_whitespace=True, header=None, names=["qid", "uid", "label"])
-#qdata   = pd.read_csv(QINFO, delim_whitespace=True, header=None, names=["qid", "qtag", "wseq", "cseq", "nvotes", "nans", "ntqans"])
+qdata   = pd.read_csv(QINFO, delim_whitespace=True, header=None, names=["qid", "qtag", "wseq", "cseq", "nvotes", "nans", "ntqans"])
 valdata = pd.read_csv(VAL)
 
-#qdata = qdata.drop(["wseq","cseq","qtag"], axis = 1)
+qdata = qdata.drop(["wseq","cseq","qtag"], axis = 1)
 if len(sys.argv) > 1:
     param1 = sys.argv[1]
     if param1 == '1':
