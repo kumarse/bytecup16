@@ -5,3 +5,9 @@ System requirements to run our code:-
 
 The files are named by the algorithm name. To run it , you need to pass a parameter [0 or 1]. For 0, it runs for validation set and for 1, it runs for test set.
 
+
+Filename:-
+hybrid_recommender.py
+
+Instruction:-
+Before running hybrid_recommender, you need to run userbased_recommender.py and per_user_svm.py.
