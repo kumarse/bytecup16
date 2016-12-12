@@ -1,6 +1,7 @@
-Two system requirements to run our code:-
+System requirements to run our code:-
 1)Code has to be executed in Google Cloud: To get best performance, we implemented multi processing tasks in our code, Thus it doesn't run in single processing machine. 
 2)Graphlab has to be installed: We have used graphlab library in our program. 
+3)lightFM has to be installed for running bpr.py - https://github.com/lyst/lightfm
 
 The files are named by the algorithm name. To run it , you need to pass a parameter [0 or 1]. For 0, it runs for validation set and for 1, it runs for test set.
 
