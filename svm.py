@@ -46,14 +46,14 @@ def prepare_training_data_for_user(uid):
     # Get entries for the user from invited data
     user_invdata = invdata[invdata.uid == uid]
     # Merge with processed qdata to get the training data for the user
-    user_data = user_invdata.merge(proc_qdata, on="qid", how="inner").drop(["qid", "uid"], axis = 1)
+    user_data = user_invdata.merge(proc_qdata, on="qid", how="inner").drop(["qid", "uid","cseq"], axis = 1)
     user_train_labels = user_data.answered
     user_train_data = user_data.drop(["answered"], axis = 1)
     return user_train_data, user_train_labels
 
 def get_val_data_for_user(uid):
     user_valdata = valdata[valdata.uid == uid]
-    user_valdata = user_valdata.merge(proc_qdata, on="qid", how="inner").drop(["label"], axis = 1)
+    user_valdata = user_valdata.merge(proc_qdata, on="qid", how="inner").drop(["cseq","label"], axis = 1)
     return user_valdata
 
 from sklearn import linear_model
